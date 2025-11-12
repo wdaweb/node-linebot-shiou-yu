@@ -3,7 +3,12 @@ import linebot from 'linebot'
 import axios from 'axios'
 import dotenv from 'dotenv'
 import fs from 'fs'
+
 dotenv.config()
+
+// 🔹 檢查環境變數
+console.log('🔍 Secret loaded:', !!process.env.CHANNEL_SECRET)
+console.log('🔍 Token loaded:', !!process.env.CHANNEL_ACCESS_TOKEN)
 
 /* -------------------- 基本設定 -------------------- */
 const app = express()
@@ -52,10 +57,9 @@ function haversine(lat1, lon1, lat2, lon2) {
 function saveFlexToFile(flexObj, prefix = 'flex') {
   try {
     const dir = './flex_logs'
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir) // 若資料夾不存在就建立
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir)
 
     const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '_').slice(0, 15)
-
     const filename = `${dir}/${prefix}_${timestamp}.json`
     fs.writeFileSync(filename, JSON.stringify(flexObj, null, 2), 'utf-8')
 
@@ -137,6 +141,8 @@ function makeFlexBubbles(rows) {
 /* -------------------- LINE Bot 主邏輯 -------------------- */
 bot.on('message', async (event) => {
   try {
+    console.log('📩 收到使用者訊息：', event.message)
+
     // 🟢 顯示快速回覆
     if (
       event.message.type === 'text' &&
@@ -175,8 +181,9 @@ bot.on('message', async (event) => {
         contents: { type: 'carousel', contents: bubbles },
       }
 
-      saveFlexToFile(flexMsg, 'location') // ✅ 寫檔
+      saveFlexToFile(flexMsg, 'location')
       await event.reply(flexMsg)
+      console.log('✅ 已回覆使用者位置查詢結果')
       return
     }
 
@@ -218,23 +225,18 @@ bot.on('message', async (event) => {
         contents: bubbles.length === 1 ? bubbles[0] : { type: 'carousel', contents: bubbles },
       }
 
-      saveFlexToFile(flex, district) // ✅ 寫檔
+      saveFlexToFile(flex, district)
+      console.log('📤 準備回覆 Flex 給使用者...')
       await event.reply(flex)
+      console.log('✅ 已回覆 Flex 給使用者')
     }
   } catch (err) {
     console.error('❌ LINE message error:', err?.response?.data || err.message)
-    await event.reply('查詢時發生錯誤，請稍後再試 🙏')
-  }
-})
-
-/* -------------------- 測試用路徑 -------------------- */
-app.get('/test', async (req, res) => {
-  try {
-    const { district = '中山區' } = req.query
-    const rows = await fetchTrashPoints({ district })
-    res.json({ count: rows.length, sample: rows.slice(0, 5) })
-  } catch (e) {
-    res.status(500).json({ error: e.message })
+    try {
+      await event.reply('查詢時發生錯誤，請稍後再試 🙏')
+    } catch (e) {
+      console.error('❌ Reply fallback 失敗:', e.message)
+    }
   }
 })
 
