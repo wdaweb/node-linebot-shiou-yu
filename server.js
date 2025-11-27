@@ -13,15 +13,23 @@ console.log('🔍 Token loaded:', !!process.env.CHANNEL_ACCESS_TOKEN)
 /* -------------------- 基本設定 -------------------- */
 const app = express()
 
+// 健康檢查 (Render & LINE 驗證需要)
+app.get('/', (req, res) => {
+  res.status(200).send('OK')
+})
+
+// 初始化 LINE Bot
 const bot = linebot({
   channelSecret: process.env.CHANNEL_SECRET,
   channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
 })
 
-app.post('/linewebhook', bot.parser())
+// ⭐⭐ 正確的 parser（你之前漏掉）
+const linebotParser = bot.parser()
 
-app.get('/', (req, res) => {
-  res.send('♻️ Taipei Trash Bot is running ✅')
+// ⭐⭐ 正確的 webhook 路由
+app.post('/webhook', linebotParser, (req, res) => {
+  res.sendStatus(200)
 })
 
 /* -------------------- 台北市垃圾車資料 -------------------- */
@@ -53,7 +61,7 @@ function haversine(lat1, lon1, lat2, lon2) {
   return R * c
 }
 
-/* -------------------- 🔸 Flex 寫檔工具 -------------------- */
+/* -------------------- Flex 寫檔 -------------------- */
 function saveFlexToFile(flexObj, prefix = 'flex') {
   try {
     const dir = './flex_logs'
@@ -242,4 +250,4 @@ bot.on('message', async (event) => {
 
 /* -------------------- 啟動伺服器 -------------------- */
 const PORT = process.env.PORT || 3000
-app.listen(PORT, () => console.log(`✅ Bot running on port ${PORT}`))
+app.listen(PORT, () => console.log(`🚀 Bot running on port ${PORT}`))
