@@ -20,10 +20,10 @@ const bot = linebot({
   channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
 })
 
-// ⭐ 正確 parser（你之前漏掉）
+//  正確 parser（你之前漏掉）
 const linebotParser = bot.parser()
 
-// ⭐ 正確 webhook 路由
+// 正確 webhook 路由
 app.post('/webhook', linebotParser, (req, res) => {
   res.sendStatus(200)
 })
@@ -67,9 +67,9 @@ function saveFlexToFile(flexObj, prefix = 'flex') {
     const filename = `${dir}/${prefix}_${timestamp}.json`
 
     fs.writeFileSync(filename, JSON.stringify(flexObj, null, 2), 'utf-8')
-    console.log(`📝 已輸出 Flex 至：${filename}`)
+    console.log(`已輸出 Flex 至：${filename}`)
   } catch (err) {
-    console.error('❌ Flex 寫檔錯誤：', err)
+    console.error(' Flex 寫檔錯誤：', err)
   }
 }
 
@@ -136,7 +136,7 @@ function makeFlexBubbles(rows) {
             type: 'button',
             style: 'primary',
             color: '#2E7D32',
-            action: { type: 'uri', label: '📍 地圖', uri: mapUrl },
+            action: { type: 'uri', label: ' 地圖', uri: mapUrl },
           },
         ],
       },
@@ -148,28 +148,28 @@ function makeFlexBubbles(rows) {
 /* -------------------- LINE Bot 主邏輯 -------------------- */
 bot.on('message', async (event) => {
   try {
-    console.log('📩 收到使用者訊息：', event.message)
+    console.log('收到使用者訊息：', event.message)
 
-    // 🟢 開場提示 / 關鍵字
+    // 開場提示 / 關鍵字
     if (
       event.message.type === 'text' &&
       /(垃圾車|查詢|查清運|start|hi|hello)/i.test(event.message.text)
     ) {
       await event.reply({
         type: 'text',
-        text: '請選擇要查詢的方式 👇',
+        text: '請選擇要查詢的方式 ',
         quickReply: {
           items: [
-            { type: 'action', action: { type: 'message', label: '🔍 查中山區', text: '中山區' } },
-            { type: 'action', action: { type: 'message', label: '🏙 查信義區', text: '信義區' } },
-            { type: 'action', action: { type: 'location', label: '📍 傳送我的位置' } },
+            { type: 'action', action: { type: 'message', label: ' 查中山區', text: '中山區' } },
+            { type: 'action', action: { type: 'message', label: '查信義區', text: '信義區' } },
+            { type: 'action', action: { type: 'location', label: '傳送我的位置' } },
           ],
         },
       })
       return
     }
 
-    // 📍 使用者傳定位
+    // 使用者傳定位
     if (event.message.type === 'location') {
       const { latitude, longitude } = event.message
       const all = await fetchTrashPoints({ district: null, village: null })
@@ -191,15 +191,15 @@ bot.on('message', async (event) => {
 
       saveFlexToFile(flexMsg, 'location')
       await event.reply(flexMsg)
-      console.log('✅ 已回覆使用者位置查詢')
+      console.log('已回覆使用者位置查詢')
       return
     }
 
-    // 🏙 使用者輸入行政區
+    // 使用者輸入行政區
     if (event.message.type === 'text') {
       const text = event.message.text.trim()
 
-      // ⭐ 修正區域判斷（使用 m[0]）
+      // 修正區域判斷（使用 m[0]）
       const m = text.match(
         /(中正區|大同區|中山區|松山區|大安區|萬華區|信義區|士林區|北投區|內湖區|南港區|文山區)/
       )
@@ -211,12 +211,12 @@ bot.on('message', async (event) => {
       if (!district) {
         await event.reply({
           type: 'text',
-          text: '請輸入行政區或使用下方按鈕 👇',
+          text: '請輸入行政區或使用下方按鈕 ',
           quickReply: {
             items: [
-              { type: 'action', action: { type: 'message', label: '🔍 查中山區', text: '中山區' } },
-              { type: 'action', action: { type: 'message', label: '🏙 查信義區', text: '信義區' } },
-              { type: 'action', action: { type: 'location', label: '📍 傳送我的位置' } },
+              { type: 'action', action: { type: 'message', label: '查中山區', text: '中山區' } },
+              { type: 'action', action: { type: 'message', label: '查信義區', text: '信義區' } },
+              { type: 'action', action: { type: 'location', label: '傳送我的位置' } },
             ],
           },
         })
@@ -225,7 +225,7 @@ bot.on('message', async (event) => {
 
       const rows = await fetchTrashPoints({ district, village })
       if (!rows.length) {
-        await event.reply(`找不到「${district}${village ? ' ' + village : ''}」的垃圾車清運點 🙏`)
+        await event.reply(`找不到「${district}${village ? ' ' + village : ''}」的垃圾車清運點 `)
         return
       }
 
@@ -237,19 +237,22 @@ bot.on('message', async (event) => {
       }
 
       saveFlexToFile(flex, district)
+      console.log('===== FLEX JSON OUTPUT =====')
+      console.log(JSON.stringify(flex, null, 2))
+      console.log('===== END =====')
       await event.reply(flex)
-      console.log('✅ 已回覆行政區查詢結果')
+      console.log('已回覆行政區查詢結果')
     }
   } catch (err) {
-    console.error('❌ LINE message error:', err?.response?.data || err.message)
+    console.error('LINE message error:', err?.response?.data || err.message)
     try {
-      await event.reply('查詢時發生錯誤，請稍後再試 🙏')
+      await event.reply('查詢時發生錯誤，請稍後再試')
     } catch (e) {
-      console.error('❌ Reply fallback 失敗:', e.message)
+      console.error('Reply fallback 失敗:', e.message)
     }
   }
 })
 
 /* -------------------- 啟動伺服器 -------------------- */
 const PORT = process.env.PORT || 3000
-app.listen(PORT, () => console.log(`🚀 Bot running on port ${PORT}`))
+app.listen(PORT, () => console.log(`Bot running on port ${PORT}`))
