@@ -30,7 +30,7 @@ function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371
   const toRad = d => (d * Math.PI) / 180
   const dLat = toRad(lat2 - lat1)
-  const dLon = toRad(lon2 - lon1)
+  const dLon = toRad(lat2 - lon1)
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) *
@@ -124,12 +124,11 @@ function makeResultFlex(place, time, distance) {
   }
 }
 
-bot.on('message', async (event) => {
-  const type = event.message?.type
-  const text = event.message?.text
+bot.on('message', async event => {
+  const msg = event.message
 
-  if (type === 'location') {
-    const { latitude, longitude } = event.message
+  if (msg.type === 'location') {
+    const { latitude, longitude } = msg
 
     let nearest = null
     let minDistance = Infinity
@@ -170,30 +169,10 @@ bot.on('message', async (event) => {
     return
   }
 
-  if (type === 'text' && text === '查垃圾車') {
-    await event.reply({
-      type: 'flex',
-      altText: '垃圾車查詢',
-      contents: HOME_FLEX
-    })
-    return
-  }
-
   await event.reply({
-    type: 'text',
-    text: '請選擇功能',
-    quickReply: {
-      items: [
-        {
-          type: 'action',
-          action: {
-            type: 'message',
-            label: '查垃圾車',
-            text: '查垃圾車'
-          }
-        }
-      ]
-    }
+    type: 'flex',
+    altText: '垃圾車查詢',
+    contents: HOME_FLEX
   })
 })
 
