@@ -152,37 +152,46 @@ function makeFlexBubbles(rows) {
 
 bot.on('message', async (event) => {
   try {
-    if (event.message.type !== 'location') {
+    console.log("收到訊息：", event.message);
+
+    // ① 只在收到 text 時提示要傳定位
+    if (event.message.type === 'text') {
       await event.reply('請傳送您的定位，我會查最近的垃圾車地點 📍')
       return
     }
 
-    const { latitude, longitude } = event.message
-    const all = await fetchAllTrashPoints()
+    // ② 處理定位（真正 location 才會進來這裡）
+    if (event.message.type === 'location') {
+      const { latitude, longitude } = event.message
 
-    const withDistance = all.map((r) => {
-      const lat = parseFloat(r['緯度'])
-      const lng = parseFloat(r['經度'])
-      return { ...r, distance: haversine(latitude, longitude, lat, lng) }
-    })
+      const all = await fetchAllTrashPoints()
 
-    withDistance.sort((a, b) => a.distance - b.distance)
-    const nearest = withDistance.slice(0, 3)
+      const withDistance = all.map((r) => {
+        const lat = parseFloat(r['緯度'])
+        const lng = parseFloat(r['經度'])
+        return { ...r, distance: haversine(latitude, longitude, lat, lng) }
+      })
 
-    const bubbles = makeFlexBubbles(nearest)
+      withDistance.sort((a, b) => a.distance - b.distance)
+      const nearest = withDistance.slice(0, 3)
 
-    const flex = {
-      type: "flex",
-      altText: "最近的垃圾車點",
-      contents: {
-        type: "carousel",
-        contents: bubbles
+      const bubbles = makeFlexBubbles(nearest)
+      
+      const flex = {
+        type: "flex",
+        altText: "最近的垃圾車地點",
+        contents: {
+          type: "carousel",
+          contents: bubbles
+        }
       }
+
+      await event.reply(flex)
+      return
     }
 
-    await event.reply(flex)
-
   } catch (err) {
+    console.error("發生錯誤：", err)
     try { await event.reply("發生錯誤，請稍後再試") } catch {}
   }
 })
