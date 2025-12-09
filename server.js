@@ -25,7 +25,6 @@ const bot = linebot({
   channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN
 })
 
-// ✅ webhook
 app.post('/webhook', bot.parser())
 
 /* =====================
@@ -51,7 +50,6 @@ function haversine(lat1, lon1, lat2, lon2) {
   return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
-// 只在啟動時載入一次
 async function loadTrashData() {
   const all = []
   const limit = 500
@@ -64,10 +62,8 @@ async function loadTrashData() {
     if (offset + rows.length >= r.data.result.count) break
   }
 
-  // 只留有經緯度的資料
   TRASH_POINTS = all.filter(r => r['緯度'] && r['經度'])
-
-  console.log(`✅ 已載入垃圾車資料：${TRASH_POINTS.length} 筆`)
+  console.log(`已載入垃圾車資料：${TRASH_POINTS.length} 筆`)
 }
 
 loadTrashData()
@@ -79,57 +75,52 @@ loadTrashData()
 bot.on('message', async (event) => {
   console.log('收到訊息類型：', event.message.type)
 
-  // ✅ 只處理「定位」
-  if (event.message.type === 'location') {
-    const { latitude, longitude } = event.message
+  // 只處理定位
+  if (event.message.type !== 'location') return
 
-    let nearest = null
-    let minDistance = Infinity
+  const { latitude, longitude } = event.message
 
-    for (const r of TRASH_POINTS) {
-      const lat = Number(String(r['緯度']).trim())
-      const lng = Number(String(r['經度']).trim())
+  let nearest = null
+  let minDistance = Infinity
 
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue
+  for (const r of TRASH_POINTS) {
+    const lat = Number(String(r['緯度']).trim())
+    const lng = Number(String(r['經度']).trim())
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue
 
-      const d = haversine(latitude, longitude, lat, lng)
+    const d = haversine(latitude, longitude, lat, lng)
 
-      if (d < minDistance) {
-        minDistance = d
-        nearest = r
-      }
+    if (d < minDistance) {
+      minDistance = d
+      nearest = r
     }
+  }
 
-    if (!nearest) {
-      await event.reply('附近沒有垃圾車資料')
-      return
-    }
-
-    // 安全處理時間
-    const arrive = nearest['抵達時間']
-      ? nearest['抵達時間'].toString().padStart(4, '0')
-      : null
-    const leave = nearest['離開時間']
-      ? nearest['離開時間'].toString().padStart(4, '0')
-      : null
-
-    const timeText =
-      arrive && leave
-        ? `${arrive.slice(0, 2)}:${arrive.slice(2)} - ${leave.slice(0, 2)}:${leave.slice(2)}`
-        : '時間未提供'
-
-    // ✅ 最終回覆（純文字，最穩）
-    const replyText =
-      `🚛 最近的垃圾車地點：\n` +
-      `${nearest['行政區'] || ''} ${nearest['地點'] || '未知地點'}\n` +
-      `⏰ ${timeText}\n` +
-      `📏 約 ${Math.round(minDistance * 1000)} 公尺`
-
-    await event.reply(replyText)
+  if (!nearest) {
+    await event.reply('找不到附近的垃圾車資料')
     return
   }
 
-  // ❌ 其他訊息一律不回（避免 replyToken 被吃掉）
+  // 時間處理
+  const arrive = nearest['抵達時間']
+    ? nearest['抵達時間'].toString().padStart(4, '0')
+    : null
+  const leave = nearest['離開時間']
+    ? nearest['離開時間'].toString().padStart(4, '0')
+    : null
+
+  const timeText =
+    arrive && leave
+      ? `${arrive.slice(0, 2)}:${arrive.slice(2)} - ${leave.slice(0, 2)}:${leave.slice(2)}`
+      : '時間未提供'
+
+  // ✅ 最精簡回覆：地點 / 時間 / 距離
+  const replyText =
+    `${nearest['地點'] || '未知地點'}\n` +
+    `${timeText}\n` +
+    `${Math.round(minDistance * 1000)} 公尺`
+
+  await event.reply(replyText)
 })
 
 /* =====================
@@ -137,5 +128,5 @@ bot.on('message', async (event) => {
 ===================== */
 
 app.listen(PORT, () => {
-  console.log(`✅ Bot running on port ${PORT}`)
+  console.log(`Bot running on port ${PORT}`)
 })
