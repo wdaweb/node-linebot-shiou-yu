@@ -17,7 +17,7 @@ app.get('/', (req, res) => {
 })
 
 /* ====================
-   LINE Bot 設定
+   LINE Bot
 ==================== */
 
 const bot = linebot({
@@ -25,7 +25,7 @@ const bot = linebot({
   channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
 })
 
-// ✅ 只用 parser，不自己回 res
+// ⚠️ 只用 parser，不自己回 res
 app.post('/webhook', bot.parser())
 
 /* ====================
@@ -51,7 +51,7 @@ function toMapUrl(lat, lng, name = '') {
 
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371
-  const toRad = deg => (deg * Math.PI) / 180
+  const toRad = d => (d * Math.PI) / 180
   const dLat = toRad(lat2 - lat1)
   const dLon = toRad(lon2 - lon1)
   const a =
@@ -80,10 +80,11 @@ async function fetchAllTrashPoints() {
     if (offset + rows.length >= total) break
   }
 
+  // ✅ 一定過濾掉沒有座標的
   return results.filter(r => r['緯度'] && r['經度'])
 }
 
-// ✅ 啟動時載入一次
+// ✅ 啟動時只載一次
 async function initData() {
   CACHED_POINTS = await fetchAllTrashPoints()
   console.log(`✅ 已載入垃圾車資料：${CACHED_POINTS.length} 筆`)
@@ -91,7 +92,7 @@ async function initData() {
 initData()
 
 /* ====================
-   Flex 卡片
+   Flex bubble（安全版）
 ==================== */
 
 function makeFlexBubbles(rows) {
@@ -102,29 +103,22 @@ function makeFlexBubbles(rows) {
 
     return {
       type: 'bubble',
-      size: 'mega',
       body: {
         type: 'box',
         layout: 'vertical',
-        spacing: 'md',
         contents: [
           {
             type: 'text',
-            text: r['地點'],
+            text: r['地點'] || '垃圾車停靠點',
             weight: 'bold',
             size: 'lg',
             wrap: true
           },
           {
             type: 'text',
-            text: `📍 ${r['行政區']}`,
+            text: `📍 ${r['行政區'] || ''}`,
             size: 'sm',
             color: '#555'
-          },
-          {
-            type: 'text',
-            text: `🛻 ${r['路線']}（${r['車次']}）`,
-            size: 'sm'
           },
           {
             type: 'text',
@@ -159,33 +153,45 @@ function makeFlexBubbles(rows) {
 }
 
 /* ====================
-   事件處理（重點）
+   Message handler（重點）
 ==================== */
 
 bot.on('message', async event => {
   try {
     console.log('收到訊息類型：', event.message.type)
 
-    // ✅ 只有在「定位」才正式回垃圾車
+    /* ✅ 定位事件（唯一正式輸出） */
     if (event.message.type === 'location') {
       const { latitude, longitude } = event.message
 
+      // ✅ 先回「一定會看到的字」
+      await event.reply(
+        `✅ 已收到定位\n(${latitude.toFixed(5)}, ${longitude.toFixed(5)})`
+      )
+
+      // ✅ 算距離
       const nearest = CACHED_POINTS
-        .map(r => ({
-          ...r,
-          distance: haversine(
+        .map(r => {
+          const d = haversine(
             latitude,
             longitude,
             parseFloat(r['緯度']),
             parseFloat(r['經度'])
           )
-        }))
+          return { ...r, distance: isNaN(d) ? 999 : d }
+        })
         .sort((a, b) => a.distance - b.distance)
         .slice(0, 3)
 
+      // ✅ 如果真的找不到
+      if (!nearest.length) return
+
       const bubbles = makeFlexBubbles(nearest)
 
-      await event.reply({
+      console.log('✅ Flex bubbles:', bubbles.length)
+
+      // ✅ 用 push（不是 reply）送 Flex，完全避開 reply 限制
+      await bot.push(event.source.userId, {
         type: 'flex',
         altText: '最近的垃圾車地點',
         contents: {
@@ -196,21 +202,16 @@ bot.on('message', async event => {
       return
     }
 
-    // ✅ 文字只做提示，不「吃掉」定位流程
+    /* ✅ 文字只提示，不影響流程 */
     if (event.message.type === 'text') {
       if (event.message.text.includes('垃圾')) {
-        await event.reply(
-          '🚛 請用 LINE 的「＋ → 位置資訊」傳送定位，我會幫你查最近的垃圾車'
-        )
+        await event.reply('🚛 請用「＋ → 位置資訊」傳送定位')
       }
       return
     }
 
   } catch (err) {
     console.error('❌ 錯誤：', err)
-    try {
-      await event.reply('系統錯誤，請稍後再試')
-    } catch {}
   }
 })
 
