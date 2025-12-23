@@ -18,6 +18,7 @@ const bot = linebot({
 })
 
 app.post('/webhook', bot.parser())
+
 const DATASET_ID = 'a6e90031-7ec4-4089-afb5-361a4efe7202'
 const BASE_URL =
   `https://data.taipei/api/v1/dataset/${DATASET_ID}?scope=resourceAquire`
@@ -58,14 +59,45 @@ async function loadTrashData() {
   }
 }
 
+
+async function getDistrict(lat, lon) {
+  try {
+    const r = await axios.get(
+      'https://nominatim.openstreetmap.org/reverse',
+      {
+        params: {
+          lat,
+          lon,
+          format: 'json'
+        },
+        headers: {
+          'User-Agent': 'line-bot-homework'
+        }
+      }
+    )
+
+    const addr = r.data.address || {}
+    return (
+      addr.city_district ||
+      addr.suburb ||
+      addr.town ||
+      addr.city ||
+      '未知行政區'
+    )
+  } catch (err) {
+    console.error('取得行政區失敗', err.message)
+    return '未知行政區'
+  }
+}
+
 loadTrashData()
+
 bot.on('message', async (event) => {
   console.log('收到訊息類型：', event.message.type)
   if (event.message.type === 'text') {
     await event.reply(
       '垃圾車查詢服務\n\n' +
-
-      '傳送Line的「定位」給我，查詢離你最近的一個垃圾車地點。\n' 
+      '傳送Line的「定位」給我，查詢離你最近的一個垃圾車地點。\n'
     )
     return
   }
@@ -76,6 +108,9 @@ bot.on('message', async (event) => {
     }
 
     const { latitude, longitude } = event.message
+
+    
+    const district = await getDistrict(latitude, longitude)
 
     let nearest = null
     let minDistance = Infinity
@@ -99,7 +134,7 @@ bot.on('message', async (event) => {
       return
     }
 
-    const MAX_DISTANCE_KM = 1 
+    const MAX_DISTANCE_KM = 1
     if (minDistance > MAX_DISTANCE_KM) {
       await event.reply(
         '此位置附近 1 公里內沒有垃圾車資料。\n' +
@@ -120,6 +155,7 @@ bot.on('message', async (event) => {
         : '時間未提供'
     const replyText =
       '最近的垃圾車資訊\n\n' +
+      `行政區：${district}\n` +
       `地點：${nearest['地點'] || '未提供'}\n` +
       `時間：${timeText}\n` +
       `距離：約 ${Math.round(minDistance * 1000)} 公尺`
@@ -131,7 +167,5 @@ bot.on('message', async (event) => {
 })
 
 app.listen(PORT, () => {
-  console.log(`✅ Bot running on port ${PORT}`)
+  console.log(`Bot running on port ${PORT}`)
 })
-
-
